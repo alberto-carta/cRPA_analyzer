@@ -1,0 +1,12 @@
+
+[base]
+QE_output_dir = "./work/kcuf.save"
+seedname = "kcuf"
+
+[pre.ref]
+nscf = "kcuf.nscf.in"
+win = "kcuf.win.ref"
+
+[pre.output]
+nscf = "kcuf.nscf_wannier.in"
+win = "kcuf.win"

@@ -1,0 +1,44 @@
+&CONTROL
+  calculation = 'nscf',
+  prefix = 'kcuf',
+  pseudo_dir = './Pseudos',
+  verbosity = 'high',
+  outdir = './work' 
+/
+&SYSTEM
+  degauss = 0.01,
+  ecutrho = 672,
+  ecutwfc = 84,
+  occupations = 'smearing',
+  smearing = 'marzari-vanderbilt',
+  ibrav = 0,
+  nat = 5,
+  nbnd = 120,
+  ntyp = 3,
+/
+&ELECTRONS
+   conv_thr = 1.0d-10,
+   diagonalization = 'david'
+/
+&IONS
+/
+&CELL
+/
+ATOMIC_SPECIES
+  Cu1 63.546     Cu.upf
+  K2  39.0983    K.upf
+  F3  18.998403  F.upf
+CELL_PARAMETERS (angstrom)
+   4.066704097   0.000000000   0.000000000
+   0.000000000   4.066704097   0.000000000
+   0.000000000   0.000000000   4.066704097
+
+ATOMIC_POSITIONS (crystal)
+Cu1           0.5000000000        0.5000000000        0.5000000000
+K2            0.0000000000        0.0000000000        0.0000000000
+F3            0.0000000000        0.5000000000        0.5000000000
+F3            0.5000000000        0.0000000000        0.5000000000
+F3            0.5000000000        0.5000000000        0.0000000000
+
+K_POINTS automatic
+10 10 10 0 0 0 

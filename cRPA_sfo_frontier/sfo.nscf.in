@@ -1,0 +1,50 @@
+&control
+   calculation        = 'nscf',
+   restart_mode       = 'from_scratch',
+   wf_collect         = .false.,
+   prefix             = 'sfo', 
+   pseudo_dir         = './Pseudos/',
+   outdir             = './work/',
+   verbosity = 'high',
+/ 
+&system 
+   ibrav              = 0,
+   nat                = 7,
+   ntyp               = 3,
+   ecutwfc            = 85.0,
+   ecutrho            = 340.0,
+   occupations        = 'smearing',
+   degauss            = 0.01,
+   smearing           = 'm-p',
+   !nosym              = .true.,
+   nbnd               = 128,
+/ 
+&electrons 
+   conv_thr           = 1.0d-10,
+   mixing_beta        = 0.7,
+   mixing_mode        = 'local-TF'
+   startingpot        = 'file',
+   diagonalization    = 'paro',
+/
+
+ATOMIC_SPECIES 
+   Fe   58.6934       Fe.upf
+   Sr   87.62         Sr.upf
+   O    15.9994       O.upf
+
+CELL_PARAMETERS {angstrom}
+       -1.9547442461         1.9547455909         6.2777152853
+        1.9547451426        -1.9547446944         6.2777152853
+        1.9547451426         1.9547446944        -6.2777152853
+
+ATOMIC_POSITIONS (crystal)
+Sr      0.64282700000000      0.64282700000000      0.00000000000000
+Sr      0.35717300000000      0.35717300000000      0.00000000000000
+Fe      0.00000000000000      0.00000000000000      0.00000000000000
+ O      0.84202400000000      0.84202400000000      0.00000000000000
+ O      0.15797600000000      0.15797600000000      0.00000000000000
+ O      0.50000000000000      0.00000000000000      0.50000000000000
+ O      0.00000000000000      0.50000000000000      0.50000000000000
+
+K_POINTS automatic
+  7 7 7 0 0 0 

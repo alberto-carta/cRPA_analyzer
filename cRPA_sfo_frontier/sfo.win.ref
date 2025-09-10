@@ -1,0 +1,87 @@
+begin unit_cell_cart
+Ang
+       -1.9547442461         1.9547455909         6.2777152853
+        1.9547451426        -1.9547446944         6.2777152853
+        1.9547451426         1.9547446944        -6.2777152853
+end unit_cell_cart
+
+begin atoms_frac
+Sr      0.64282700000000      0.64282700000000      0.00000000000000
+Sr      0.35717300000000      0.35717300000000      0.00000000000000
+Fe      0.00000000000000      0.00000000000000      0.00000000000000
+ O      0.84202400000000      0.84202400000000      0.00000000000000
+ O      0.15797600000000      0.15797600000000      0.00000000000000
+ O      0.50000000000000      0.00000000000000      0.50000000000000
+ O      0.00000000000000      0.50000000000000      0.50000000000000
+end atoms_frac
+
+! system
+num_wann = 5
+num_bands = 8
+mp_grid 7 7 7
+
+! job control
+exclude_bands : 1-25,34-128
+iprint = 2
+
+! plotting
+wannier_plot = false
+wannier_plot_supercell = 3
+bands_plot = true
+bands_num_points = 100
+bands_plot_format = gnuplot
+write_hr = true
+write_u_matrices = true
+
+! disentanglement
+dis_win_min = 7.6
+dis_win_max = 12.7
+dis_froz_min = 8.6
+dis_froz_max = 12.7
+dis_num_iter = 1000
+dis_conv_tol = 1.0E-12
+!dis_mix_ratio = 0.9
+
+! wannierisation
+num_iter = 1000
+conv_window = 5
+conv_tol = 1e-12
+
+! pp tools
+kpath = false
+kpath_task = bands
+kpath_bands_colour = spin
+kpath_num_points=500
+begin kpoint_path
+ G 0.00  0.00  0.00  N 0.00  0.50  0.00
+ N 0.00  0.50  0.00  X 0.00  0.00  0.50
+ X 0.00  0.00  0.50  G 0.00  0.00  0.00
+ G 0.00  0.00  0.00  M 0.25  0.25 -0.25
+end kpoint_path
+
+kslice = false
+kslice_task = fermi_lines
+fermi_energy = 11.375
+kslice_2dkmesh = 200 200
+kslice_corner =  0.00  0.00  0.00
+!kslice_b1 =     -0.27259  0.27259  0.27259
+!kslice_b2 =      0.27259 -0.27259  0.27259
+kslice_b1 =     -0.25  0.25  0.25
+kslice_b2 =      0.25 -0.25  0.25
+!kslice_b1 =      0.00  0.50  0.00
+!kslice_b2 =      0.50  0.00  0.00
+!kslice_fermi_lines_colour = spin
+
+dos = true
+dos_project = 3
+!dos_energy_min = 8.
+!dos_energy_max = 13.
+dos_kmesh = 50
+!dos_adpt_smr = false
+!dos_smr_type = gauss
+!dos_smr_fixed_en_width = 0.05
+
+begin projections
+Fe:d:x=1,0,0
+end projections
+

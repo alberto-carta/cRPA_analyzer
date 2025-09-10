@@ -1,0 +1,49 @@
+Reading conf.toml
+Start: Run wan2respack_pre.
+Start: Run qe2respack
+New style QE output XML file (data-file-schema.xml) is found.
+loading ./work/kcuf.save/data-file-schema.xml
+num_k = 56
+num_b = 120
+eFermi = 0.2162782325914306
+n_sym = 48
+generating dir-wfn/dat.sample-k
+generating dir-wfn/dat.lattice
+generating dir-wfn/dat.bandcalc
+generating dir-wfn/dat.nkm
+generating dir-wfn/dat.eigenvalue
+generating dir-wfn/dat.atom_position
+generating dir-wfn/dat.symmetry
+generating dir-wfn/dat.kg
+generating dir-wfn/dat.wfn
+End: Run qe2respack
+Start: Run gen_mk
+End: Run gen_mk
+Generating nscf input for Wannier90, kcuf.nscf_wannier.in, from kcuf.nscf.in.
+Generating win input for Wannier90, kcuf.win, from kcuf.win.ref.
+Finish: Run wan2respack_pre.
+ L1=          12
+ L2=          12
+ L3=          12
+Reading conf.toml
+Start: Run wan2respack_core.
+Start: running qe2respack.
+New style QE output XML file (data-file-schema.xml) is found.
+loading ./work/kcuf.save/data-file-schema.xml
+num_k = 1000
+num_b = 120
+eFermi = 0.2162782325914306
+n_sym = 48
+generating dir-wfn/dat.sample-k
+generating dir-wfn/dat.lattice
+generating dir-wfn/dat.bandcalc
+generating dir-wfn/dat.nkm
+generating dir-wfn/dat.eigenvalue
+generating dir-wfn/dat.atom_position
+generating dir-wfn/dat.symmetry
+generating dir-wfn/dat.kg
+generating dir-wfn/dat.wfn
+Finish: running qe2respack.
+Start: running /cluster/project/spaldin/wan2respack/1.0/bin/gen_wan.x.
+Finish: running /cluster/project/spaldin/wan2respack/1.0/bin/gen_wan.x.
+Finish: Run wan2respack_core.
