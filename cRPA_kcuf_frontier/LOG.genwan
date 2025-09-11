@@ -1,8 +1,0 @@
- Reading kcuf.chk
- Reading ./dir-wfn/*
- Reading dat.kg_respack
- Writing ./dir-wan/dat.wan-center
- Writing ./dir-wan/dat.ns-nb
- Writing ./dir-wan/dat.umat
- Calculating C_tilde
- Writing ./dir-wan/dat.wan:  NWF, NTK =     5 1000

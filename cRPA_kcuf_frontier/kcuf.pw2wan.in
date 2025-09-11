@@ -1,9 +1,0 @@
-&inputpp 
-   prefix             = 'kcuf', 
-   outdir             = './work',
-   seedname     = 'kcuf'
-   write_mmn    = .true.
-   write_amn    = .true.
-!   write_unk    = .true.
-!   write_dmn    = .true.
-/

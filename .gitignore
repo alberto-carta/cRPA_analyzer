@@ -1,6 +1,8 @@
 # Data directories
 ./cRPA_kcuf_frontier/
 ./cRPA_sfo_frontier/
+./cRPA_kcuf_pd/
+./cRPA_sfo_pd/
 
 # Python
 __pycache__/

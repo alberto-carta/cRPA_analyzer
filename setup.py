@@ -9,6 +9,9 @@ setup(
         "matplotlib",
         "triqs_tprf",
     ],
+    extras_require={
+        "progress": ["tqdm"],
+    },
     author="Your Name",
     description="Tools for analyzing cRPA calculations and susceptibilities",
     python_requires=">=3.7",

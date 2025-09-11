@@ -1,8 +1,0 @@
-&inputpp 
-   prefix             = 'sfo', 
-   outdir             = './work/',
-   seedname     = 'sfo'
-   write_mmn    = .true.
-   write_amn    = .true.
-   write_unk    = .false.
-/

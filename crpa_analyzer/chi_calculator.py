@@ -13,7 +13,8 @@ from .utils import invert_tensor
 class ChiCalculator:
     """Calculator for bare and dressed susceptibilities"""
     
-    def __init__(self, hr_file, units=None, orbital_positions=None, mu=None):
+    def __init__(self, hr_file, units=None, orbital_positions=None, mu=None, 
+                 beta=40.0, n_max=100):
         """Initialize with tight-binding data
         
         Args:
@@ -21,6 +22,8 @@ class ChiCalculator:
             units: lattice unit vectors (default: identity)
             orbital_positions: orbital positions (default: origin)
             mu: chemical potential/Fermi level
+            beta: inverse temperature (default: 40.0)
+            n_max: maximum Matsubara frequency index (default: 100)
         """
         self.hr_file = hr_file
         self.hopp_dict, self.n_orb = parse_hopping_from_wannier90_hr_dat(hr_file)
@@ -33,6 +36,8 @@ class ChiCalculator:
         self.units = units
         self.orbital_positions = orbital_positions
         self.mu = mu
+        self.beta = beta
+        self.n_max = n_max
         
         # Create tight-binding lattice
         self.tb_lattice = TBLattice(
@@ -53,13 +58,18 @@ class ChiCalculator:
         self.e_k = self.tb_lattice.fourier(kmesh)
         return kmesh
     
-    def setup_frequency_mesh(self, beta=40.0, n_max=100):
+    def setup_frequency_mesh(self, beta=None, n_max=None):
         """Setup frequency mesh for Green's functions"""
+        if beta is None:
+            beta = self.beta
+        if n_max is None:
+            n_max = self.n_max
         self.wmesh = MeshImFreq(beta=beta, S='Fermion', n_max=n_max)
         return self.wmesh
     
-    def compute_bare_susceptibility(self, beta=40.0, n_max=100, n_k=(15, 15, 15)):
+    def compute_bare_susceptibility(self, beta=None, n_max=None, n_k=(15, 15, 15)):
         """Compute bare susceptibility chi00"""
+        print("Setting up k-mesh and frequency mesh...")
         if self.e_k is None:
             self.setup_kmesh(n_k)
         if not hasattr(self, 'wmesh'):
@@ -67,14 +77,18 @@ class ChiCalculator:
         if self.mu is None:
             raise ValueError("Chemical potential mu must be set")
             
+        print("Computing lattice Green's function...")
         # Compute Green's function
         self.g0_wk = lattice_dyson_g0_wk(mu=self.mu, e_k=self.e_k, mesh=self.wmesh)
         
+        print("Computing bare susceptibility bubble...")
         # Compute bare susceptibility
         self.chi00_wk = imtime_bubble_chi0_wk(self.g0_wk, nw=1)
         
+        print("Transforming bare susceptibility to real space...")
         # Transform to real space
         self.chi00_wr = chi_wr_from_chi_wk(self.chi00_wk)
+        print("Bare susceptibility computation completed!")
         
         return self.chi00_wk, self.chi00_wr
     
@@ -94,19 +108,35 @@ class ChiCalculator:
         if self.chi00_wk is None:
             raise ValueError("Must compute bare susceptibility first")
             
+        print("Phase 1: Transforming non-local interactions to k-space...")
         # Transform non-local interactions to k-space
         WcRPA_wk = chi_wk_from_chi_wr(WcRPA_wr)
         
+        print("Phase 2: Computing RPA susceptibility at each k-point...")
         # Manual RPA solution in k-space
         nw, nk = self.chi00_wk.data.shape[:2]
         chi_rpa_wk = self.chi00_wk.copy() * 0.0
         
-        for ik in range(nk):
+        # Progress tracking
+        try:
+            from tqdm import tqdm
+            k_iterator = tqdm(range(nk), desc="k-points", ncols=80)
+        except ImportError:
+            k_iterator = range(nk)
+            print(f"Processing {nk} k-points...")
+        
+        for ik in k_iterator:
+            if not hasattr(k_iterator, 'update'):  # no tqdm available
+                if ik % max(1, nk // 10) == 0:  # print every 10%
+                    print(f"  k-point {ik+1}/{nk} ({100*(ik+1)/nk:.1f}%)")
+            
             chi0_inv = invert_tensor(self.chi00_wk.data[0, ik], threshold)
             chi_inv = -chi0_inv - WcRPA_wk.data[0, ik]
             chi_rpa_wk.data[0, ik] = invert_tensor(chi_inv, threshold)
         
+        print("Phase 3: Back-transforming to real space...")
         chi_rpa_wr = chi_wr_from_chi_wk(chi_rpa_wk)
+        print("RPA computation completed!")
         
         return chi_rpa_wk, chi_rpa_wr
     

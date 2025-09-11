@@ -57,7 +57,7 @@ class InteractionParser:
         
         return V_abcd
     
-    def load_nonlocal_interactions(self, n_orb, r_cutoff=5.1, chi_wr_template=None):
+    def load_nonlocal_interactions(self, n_orb, rmax, r_cutoff=5.1, chi_wr_template=None, debug=False):
         """Load non-local interactions within cutoff radius
         
         Args:
@@ -72,6 +72,19 @@ class InteractionParser:
             raise ValueError("chi_wr_template required for non-local interactions")
             
         # Find R-vectors within cutoff
+        # periodic boundary conditions to get back to RESPACK convention
+        # kmax is composed of the maximum absolute values of Rx, Ry, Rz found in RESPACK Wmat and Jmat
+        # RESPACK uses the convention that R goes from  -rmax to +rmax in each direction
+        # while tprf goes from 0 to 2*rmax+1
+
+        # this part of the code wraps the R-vectors to account for this
+        # if Rx > rmax[0] then Rx = Rx - (2*rmax[0]+1)
+        # else do nothing
+        wrapped_R_vectors = [
+            np.array(R) - np.rint(np.array(R) / (2 * np.array(rmax) + 1)) * (2 * np.array(rmax) + 1)
+            for R in chi_wr_template.mesh[1]
+        ]
+
         masked_indices = [
             iR for iR, R in enumerate(chi_wr_template.mesh[1]) 
             if np.linalg.norm(R.value.value) <= r_cutoff
