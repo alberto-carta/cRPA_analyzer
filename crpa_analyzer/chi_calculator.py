@@ -126,9 +126,9 @@ class ChiCalculator:
             print(f"Processing {nk} k-points...")
         
         for ik in k_iterator:
-            if not hasattr(k_iterator, 'update'):  # no tqdm available
-                if ik % max(1, nk // 10) == 0:  # print every 10%
-                    print(f"  k-point {ik+1}/{nk} ({100*(ik+1)/nk:.1f}%)")
+            # if not hasattr(k_iterator, 'update'):  # no tqdm available
+            #     if ik % max(1, nk // 10) == 0:  # print every 10%
+            #         print(f"  k-point {ik+1}/{nk} ({100*(ik+1)/nk:.1f}%)")
             
             chi0_inv = invert_tensor(self.chi00_wk.data[0, ik], threshold)
             chi_inv = -chi0_inv - WcRPA_wk.data[0, ik]
@@ -139,6 +139,27 @@ class ChiCalculator:
         print("RPA computation completed!")
         
         return chi_rpa_wk, chi_rpa_wr
+    
+    def compute_rpa_manually(self, W_q_tensors_manual, threshold=1e-3):
+        """Compute RPA susceptibility manually from W_q_tensors"""
+        if self.chi00_wk is None:
+            raise ValueError("Must compute bare susceptibility first")
+        
+        chi0_inv_wk = self.chi00_wk.copy() * 0.0
+        chid_inv_wk = self.chi00_wk.copy() * 0.0
+        chid_wk_manual = self.chi00_wk.copy()*0.0
+        nk = len(self.chi00_wk.mesh[1])
+        for ik in range(nk):
+            chi0_inv_wk.data[0, ik] = invert_tensor(-self.chi00_wk.data[0, ik]*2, threshold)
+
+            # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
+            chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
+
+            chid_wk_manual.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold)
+
+        chid_wr_manual = chi_wr_from_chi_wk(chid_wk_manual)
+        
+        return chid_wr_manual, chid_wk_manual
     
     def get_kpath(self, high_sym_points, path_labels, num=200):
         """Get k-point path for band structure plotting"""

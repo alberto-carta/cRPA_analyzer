@@ -1,3 +1,42 @@
+# === Manual W/J reading and Fourier transform (separate, as in working_prototype.py) ===
+from crpa_analyzer.parse_Wmat_k import forward_transform, backward_transform
+import numpy as np
+
+def read_WJ(W_file, J_file, norb, kmesh_shape=(11,11,11), R_cutoff=500):
+    """
+    Read W and J matrices, build W_tensors, r_list, q_list (no FT).
+    Returns: W_tensors, r_list, q_list
+    """
+    from crpa_analyzer.parse_Wmat_k import list_triplets, parse_wmat_block_real, generate_dual_q_grid
+    import numpy as np
+    r_list = list_triplets(W_file)
+    r_list.sort(key=lambda t: np.linalg.norm(t))
+    q_list = generate_dual_q_grid(kmesh_shape)
+    U_matrices = np.zeros((len(r_list), norb, norb))
+    J_matrices = np.zeros((len(r_list), norb, norb))
+    W_tensors = np.zeros((len(r_list), norb, norb, norb, norb), dtype=complex)
+    for i, triplet in enumerate(r_list):
+        U_matrices[i] = parse_wmat_block_real(W_file, triplet=triplet, orbmax=norb)
+    J_matrices[0] = parse_wmat_block_real(J_file, triplet=r_list[0], orbmax=norb)
+    for k in range(len(r_list)):
+        if np.linalg.norm(r_list[k]) < R_cutoff:
+            for i in range(norb):
+                for j in range(norb):
+                    W_tensors[k, i, i, j, j] = U_matrices[k, i, j]
+    for i in range(norb):
+        for j in range(norb):
+            W_tensors[0, i, j, j, i] = J_matrices[0, i, j]
+    return W_tensors, r_list, q_list
+
+def manual_fourier_W(W_tensors, r_list, q_list):
+    """
+    Perform the forward and backward Fourier transform, print round-trip error, return W_q_tensors.
+    """
+    W_q_tensors = forward_transform(W_tensors, r_list, q_list)
+    retransformed = backward_transform(W_q_tensors, q_list, r_list)
+    diff = np.linalg.norm(W_tensors - retransformed)
+    print(f"[Manual FT] Transform round-trip error (screened): {diff:.9f}")
+    return W_q_tensors
 """
 Utility functions for susceptibility calculations
 """

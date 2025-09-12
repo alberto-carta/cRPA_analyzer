@@ -9,8 +9,8 @@ import tqdm
 
 #%%
 """Main example function"""
-material ="sfo"
-basis = "dp"
+material ="kcuf"
+basis = "frontier"
 
 # File paths (adjust as needed)
 hr_file = f"../materials/cRPA_{material}_{basis}/{material}.2_hr.dat"
@@ -18,11 +18,11 @@ w_file =  f"../materials/cRPA_{material}_{basis}/dir-intW/dat.Wmat"
 j_file =  f"../materials/cRPA_{material}_{basis}/dir-intJ/dat.Jmat"
 
 # Chemical potential
-# mu = 5.8787
-mu = 9.2173
+mu = 5.8787
+# mu = 9.2173
 beta = 40.0 # 40
 nw = 100 #150
-kgrid = (7, 7, 7)
+kgrid = (11,11,11)
 
 
 # High symmetry points
@@ -84,12 +84,12 @@ chid_inv_wk = chi00_wk.copy() * 0.0
 chid_manual_wk = chi00_wk.copy()*0.0
 nk = len(chi00_wk.mesh[1])
 for ik in range(nk):
-    chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-5)
+    chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-3)
 
     # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
     chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
 
-    chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-5)
+    chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-3)
 
 chid_wr_manual = chi_wr_from_chi_wk(chid_manual_wk)
 
@@ -100,62 +100,74 @@ chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
 print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
 
 # now with the function
-chid_wr_manual, chid_wk_manual = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-5)
+chid_wr_manual, chid_wk_manual = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-3)
 chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
 print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
 #%% print ligand and TM
 chi0_TM_trace = np.einsum('aabb', -chi00_wr.data[0, 0, 0:5, 0:5, 0:5, 0:5] * 2)
 chid_TM_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
 
-chi0_p_trace = np.einsum('aabb', -chi00_wr.data[0, 0, 5:8, 5:8, 5:8, 5:8] * 2)
-chid_p_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 5:8, 5:8, 5:8, 5:8])
-
 print(f"Bare susceptibility trace (TM): {chi0_TM_trace:.6f}")
 print(f"Manual RPA susceptibility trace (TM): {chid_TM_trace:.6f}")
 
-print(f"Bare susceptibility trace (Oxygen): {chi0_p_trace:.6f}")
-print(f"Manual RPA susceptibility trace (Oxygen): {chid_p_trace:.6f}")
 #%%
-chi0_2p_trace = np.einsum('aabb', -chi00_wr.data[0, 0, 11:14, 11:14, 11:14, 11:14] * 2)
-chi_nonlocal_oxygen2 = np.einsum('aabb', chid_wr_manual.data[0, 0, 11:14, 11:14, 11:14, 11:14])
-print(f"Bare susceptibility trace (Oxygen2): {chi0_2p_trace:.6f}")   
-print(f"Non-local RPA trace (Oxygen2): {chi_nonlocal_oxygen2:.6f}")
-
 
 #%%
-# Load interactions
-print("Loading cRPA interactions...")
-parser = InteractionParser(w_file, j_file)
+atom_types = ['Cu']
+n_orb_per_atom = [5]
+atom_indices = [ list(range(sum(n_orb_per_atom[:i]), sum(n_orb_per_atom[:i+1]))) for i in range(len(n_orb_per_atom))]
 
-# Compute RPA with non-local interactions
-print("Computing non-local RPA susceptibility...")
-Rcut = 200 # kcuf
-# Rcut = 4.0 # sfo
-# Rcut = 3.1 # sfo
-WcRPA_wr = parser.load_nonlocal_interactions(calc.n_orb, r_cutoff=Rcut, 
-                                           chi_wr_template=chi00_wr,)
-chi_nonlocal_wk, chi_nonlocal_wr = calc.compute_rpa_susceptibility_nonlocal(WcRPA_wr, threshold=1e-5)
+# trace over chi0
+nr = len(chi00_wr.mesh[1])
+n_atoms = len(atom_types)
+chi0r_isotropic = np.zeros((nr, n_atoms, n_atoms), dtype=complex)
+chidr_isotropic = np.zeros((nr, n_atoms, n_atoms), dtype=complex)
+
+for ir in range(nr):
+    for i in range(n_atoms):
+        for j in range(n_atoms):
+            # Extract the submatrix for atoms i and j using np.ix_ for proper indexing
+            submatrix_0 = chi00_wr.data[0, ir][np.ix_(atom_indices[i], atom_indices[i], atom_indices[j], atom_indices[j])]
+            chi0r_isotropic[ir, i, j] = np.einsum('aabb', -submatrix_0 * 2)
+            submatrix_d = chid_wr_manual.data[0, ir][np.ix_(atom_indices[i], atom_indices[i], atom_indices[j], atom_indices[j])]
+            chidr_isotropic[ir, i, j] = np.einsum('aabb', submatrix_d)
+
+with np.printoptions(precision=3, suppress=True):
+    print("\nBare susceptibility isotropic R = 0,0,0")
+    print(chi0r_isotropic[0, :, :])
+    print("\nFull susceptibility isotropic R = 0,0,0")
+    print(chidr_isotropic[0, :, :])
+
+
 #%%
-# Plot susceptibilities
+from crpa_analyzer.parse_Wmat_k import forward_transform, backward_transform
 
-# Print local traces
-chi00_trace = np.einsum('aabb', chi00_wr.data[0, 0, 0:5,0:5,0:5,0:5] * 2)
-# chi_local_trace = np.einsum('aabb', chi_local_wr.data[0, 0] * 2)
-chi_nonlocal_trace = np.einsum('aabb', chi_nonlocal_wr.data[0, 0, 0:5, 0:5, 0:5, 0:5] * 2)
+chi0q_isotropic = forward_transform(chi0r_isotropic, r_list, q_list)
+chidq_isotropic = forward_transform(chidr_isotropic, r_list, q_list)
 
-print(f"Bare susceptibility trace: {chi00_trace:.6f}")
-# print(f"Local RPA trace: {chi_local_trace:.6f}")
-print(f"Non-local RPA trace: {chi_nonlocal_trace:.6f}")
+# invert at every q and backtransform to get U_lrt
+U_lrtq = np.zeros_like(chi0q_isotropic)
 
+for iq in range(len(q_list)):
+    chi0_inv = np.linalg.pinv(chi0q_isotropic[iq], rcond=1e-5)
+    chid_inv = np.linalg.pinv(chidq_isotropic[iq], rcond=1e-5)
+    U_lrtq[iq] = chi0_inv - chid_inv
 
-
-
-    
+U_lrtr = backward_transform(U_lrtq, q_list, r_list)
+#%% print U_lrt
+with np.printoptions(precision=3, suppress=True):
+    print("\nU_lrt at R=0,0,0")
+    print(U_lrtr[0:2, :, :])
 #%%
-chi00_oxygen = np.einsum('aabb', chi00_wr.data[0, 0, 5:8,5:8,5:8,5:8] * 2)
-print(f"Bare susceptibility trace (Oxygen): {chi00_oxygen:.6f}")
-chi_nonlocal_oxygen = np.einsum('aabb', chi_nonlocal_wr.data[0, 0, 5:8,5:8,5:8,5:8] * 2)
-print(f"Non-local RPA trace (Oxygen): {chi_nonlocal_oxygen:.6f}")
+import pandas as pd
+# save to csv the isotropic components at R = 0 for chis and U,
+#  use the atoms as rows, chi and U as columns
+# for now save only diagonal components
+
+df = pd.DataFrame(columns = ['chi0_diag', 'chid_diag', 'U_diag'])
+for i in range(n_atoms):
+    df.loc[atom_types[i]] = [chi0r_isotropic[0, i, i].real, chidr_isotropic[0, i, i].real, U_lrtr[0, i, i].real]
+df.to_csv(f"{material}_{basis}_isotropic_chis_R0.csv")
 
 
 # %%

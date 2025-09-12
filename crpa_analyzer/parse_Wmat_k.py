@@ -517,7 +517,7 @@ def forward_transform(W_r_list, R_list, q_list):
     Performs a Fourier transform on a list of 4-index tensors from R-space to k-space.
     
     Parameters:
-    W_r_list: List of 4-index tensors in real space
+    W_r_list: List of  tensors in real space
     R_list: List of R-vectors corresponding to the tensors
     q_list: List of q-points for the Fourier transform
     
