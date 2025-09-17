@@ -8,8 +8,9 @@ from crpa_analyzer import ChiCalculator, InteractionParser, plot_bands, plot_chi
 import tqdm
 
 #%%
+
 """Main example function"""
-material ="nio"
+material ="cro"
 basis = "dp"
 
 # File paths (adjust as needed)
@@ -18,10 +19,10 @@ w_file =  f"../materials/cRPA_{material}_{basis}/dir-intW/dat.Wmat"
 j_file =  f"../materials/cRPA_{material}_{basis}/dir-intJ/dat.Jmat"
 
 # Chemical potential
-mu = 14.5257
-beta = 40.0 # 40
-nw = 100 #150
-kgrid = (7,7,7)
+mu = 11.3606
+beta = 20.0 # 40
+nw = 50 #150
+kgrid = (7,7,5)
 
 
 # High symmetry points
@@ -62,7 +63,7 @@ print(f"Bare susceptibility trace: {chi00_trace:.6f}")
 from crpa_analyzer.utils import read_WJ, manual_fourier_W
 
 print("\n--- Manual W/J Fourier transform ---")
-W_tensors_manual, r_list, q_list = read_WJ(w_file, j_file, calc.n_orb, kmesh_shape=kgrid)
+W_tensors_manual, r_list, q_list = read_WJ(w_file, j_file, calc.n_orb, kmesh_shape=kgrid, R_cutoff=5)
 print(f"Read {len(r_list)} R-vectors, {len(q_list)} q-vectors")
 W_q_tensors_manual = manual_fourier_W(W_tensors_manual, r_list, q_list)
 
@@ -76,33 +77,33 @@ with np.printoptions(precision=3, suppress=True):
     print("[Manual FT] U_q0 (first 5x5 block):")
     print(U_q0[0:5, 0:5])
 #%%
-from crpa_analyzer.utils import invert_tensor
-from triqs_tprf.lattice import chi_wr_from_chi_wk
-chi0_inv_wk = chi00_wk.copy() * 0.0
-chid_inv_wk = chi00_wk.copy() * 0.0
-chid_manual_wk = chi00_wk.copy()*0.0
-nk = len(chi00_wk.mesh[1])
-for ik in range(nk):
-    chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-5)
+# from crpa_analyzer.parse_Wmat_k import forward_transform, backward_transform
+# from crpa_analyzer.utils import invert_tensor
+# from triqs_tprf.lattice import chi_wr_from_chi_wk
+# chi0_inv_wk = chi00_wk.copy() * 0.0
+# chid_inv_wk = chi00_wk.copy() * 0.0
+# chid_manual_wk = chi00_wk.copy()*0.0
+# nk = len(chi00_wk.mesh[1])
+# for ik in range(nk):
+#     chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-5)
 
-    # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
-    chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
+#     # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
+#     chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
 
-    chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-5)
+#     chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-5)
 
-chid_wr_manual = chi_wr_from_chi_wk(chid_manual_wk)
-
-
-# chid_wr, chid_wk = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-3)
-# print bare and RPA traces
-chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
-print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
-
-# now with the function
+# # chid_wr_manual = chi_wr_from_chi_wk(chid_manual_wk)
 #%%
-chid_wr_manual, chid_wk_manual = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-8)
-chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
+# print(" Fourier transforming manual chid_wk to real space...")
+# chid_wr_manual =  backward_transform(chid_manual_wk.data[0], q_list, r_list)
+
+
+
+#%%
+chid_wr_manual, chid_wk = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-3)
+chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0,10:13, 10:13, 10:13, 10:13]) 
 print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
+
 #%% print ligand and TM
 chi0_TM_trace = np.einsum('aabb', -chi00_wr.data[0, 0, 0:5, 0:5, 0:5, 0:5] * 2)
 chid_TM_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
@@ -117,9 +118,11 @@ print(f"Bare susceptibility trace (F): {chi0_p_trace:.6f}")
 print(f"Manual RPA susceptibility trace (F): {chid_p_trace:.6f}")
 
 #%%
-atom_types = ['Ni1', 'Ni2', 'O1', 'O2']
-n_orb_per_atom = [5, 5, 3, 3]
+atom_types = ['Cr1', 'Cr2', 'O1', 'O2', 'O3', 'O4']
+n_orb_per_atom = [5, 5, 3, 3, 3, 3]  # Adjust based on actual orbital counts per atom
 atom_indices = [ list(range(sum(n_orb_per_atom[:i]), sum(n_orb_per_atom[:i+1]))) for i in range(len(n_orb_per_atom))]
+
+
 
 # trace over chi0
 nr = len(chi00_wr.mesh[1])
@@ -134,34 +137,51 @@ for ir in range(nr):
             submatrix_0 = chi00_wr.data[0, ir][np.ix_(atom_indices[i], atom_indices[i], atom_indices[j], atom_indices[j])]
             chi0r_isotropic[ir, i, j] = np.einsum('aabb', -submatrix_0 * 2)
             submatrix_d = chid_wr_manual.data[0, ir][np.ix_(atom_indices[i], atom_indices[i], atom_indices[j], atom_indices[j])]
+            # submatrix_d = chid_wr_manual[ir][np.ix_(atom_indices[i], atom_indices[i], atom_indices[j], atom_indices[j])]
             chidr_isotropic[ir, i, j] = np.einsum('aabb', submatrix_d)
 
-with np.printoptions(precision=3, suppress=True):
+
+# remove elements with abs value < 0.005
+# chi0r_isotropic[np.abs(chi0r_isotropic) < 0.01] = 0.0
+# chidr_isotropic[np.abs(chidr_isotropic) < 0.05] = 0.0
+
+with np.printoptions(precision=6, suppress=True):
     print("\nBare susceptibility isotropic R = 0,0,0")
-    print(chi0r_isotropic[0, :, :])
+    print(chi0r_isotropic[0, :, :].real)
     print("\nFull susceptibility isotropic R = 0,0,0")
-    print(chidr_isotropic[0, :, :])
+    print(chidr_isotropic[1, :, :].real)
+
+
+
+
 
 
 #%%
 from crpa_analyzer.parse_Wmat_k import forward_transform, backward_transform
 
-chi0q_isotropic = forward_transform(chi0r_isotropic, r_list, q_list)
-chidq_isotropic = forward_transform(chidr_isotropic, r_list, q_list)
+r_list_tprf = [v.value.value for v in chi00_wr.mesh[1]]
+
+
+# chi0q_isotropic = forward_transform(chi0r_isotropic, r_list, q_list)
+# chidq_isotropic = forward_transform(chidr_isotropic, r_list, q_list)
+chi0q_isotropic = forward_transform(chi0r_isotropic, r_list_tprf, q_list)
+chidq_isotropic = forward_transform(chidr_isotropic, r_list_tprf, q_list)
+
+
 
 # invert at every q and backtransform to get U_lrt
 U_lrtq = np.zeros_like(chi0q_isotropic)
 
-for iq in range(len(q_list)):
-    chi0_inv = np.linalg.pinv(chi0q_isotropic[iq], rcond=1e-8)
-    chid_inv = np.linalg.pinv(chidq_isotropic[iq], rcond=1e-8)
+for iq in range(len(q_list[:])):
+    chi0_inv = np.linalg.pinv(chi0q_isotropic[iq], rcond=1e-5)
+    chid_inv = np.linalg.pinv(chidq_isotropic[iq], rcond=1e-5)
     U_lrtq[iq] = chi0_inv - chid_inv
 
-U_lrtr = backward_transform(U_lrtq, q_list, r_list)
-#%% print U_lrt
+U_lrtr = backward_transform(U_lrtq, q_list, r_list_tprf)
+#%%
 with np.printoptions(precision=3, suppress=True):
     print("\nU_lrt at R=0,0,0")
-    print(U_lrtr[0, :, :])
+    print(U_lrtr[0, :, :].real)
 
 
 # %%
@@ -174,5 +194,71 @@ df = pd.DataFrame(columns = ['chi0_diag', 'chid_diag', 'U_diag'])
 for i in range(n_atoms):
     df.loc[atom_types[i]] = [chi0r_isotropic[0, i, i].real, chidr_isotropic[0, i, i].real, U_lrtr[0, i, i].real]
 df.to_csv(f"{material}_{basis}_isotropic_chis_R0.csv")
+
+# %%
+
+r_list_tprf = [ v.value.value for v in chi00_wr.mesh[1]]
+# --- QE comparison using library function only ---
+from crpa_analyzer.qe_compare import get_chis_qe_convention, hp_r_points_loops, wrap_point
+
+qe_supercell = [3, 3, 2]
+crpa_supercell = [7, 7, 5]
+
+# chi0_isotropic_qe, chid_isotropic_qe, rr_indices = get_chis_qe_convention(
+#     chi0r_isotropic, chidr_isotropic, n_atoms,
+#     qe_supercell=qe_supercell, crpa_supercell=crpa_supercell, r_list_tprf=r_list_tprf
+# )
+
+if r_list_tprf is None:
+    raise ValueError("r_list_tprf must be provided (list of R points from cRPA)")
+# Generate QE R points
+r_list_qe = hp_r_points_loops(*qe_supercell).T.tolist()
+r_list_wrapped = [wrap_point(R, qe_supercell) for R in r_list_qe]
+
+# tprf R points are read from RESPACK cRPA calculation
+r_list_tprf_wrapped = [wrap_point(R, crpa_supercell) for R in r_list_tprf]
+
+# match R points between QE and TPRF
+indices = [r_list_tprf_wrapped.index(R) for R in r_list_wrapped]
+
+# build a matrix of relative R points in QE convention
+rr_matrix = [[wrap_point(np.array(R2) - np.array(R1), qe_supercell) for R2 in r_list_wrapped] for R1 in r_list_wrapped]
+rr_indices = [[indices[r_list_wrapped.index(rr_matrix[i][j])] for j in range(len(r_list_wrapped))] for i in range(len(r_list_wrapped))]
+
+n_R = len(indices)
+n_total = n_R * n_atoms
+# Create matrices directly in flattened format (n_total, n_total)
+chid_isotropic_qe = np.zeros((n_total, n_total), dtype=complex)
+chi0_isotropic_qe = np.zeros((n_total, n_total), dtype=complex)
+
+# Build block matrices using numpy.block for efficiency and clarity
+chid_blocks = [[chidr_isotropic[rr_indices[i][j], :, :] for j in range(len(indices))] for i in range(len(indices))]
+chi0_blocks = [[chi0r_isotropic[rr_indices[i][j], :, :] for j in range(len(indices))] for i in range(len(indices))]
+chid_isotropic_qe = np.block(chid_blocks)
+chi0_isotropic_qe = np.block(chi0_blocks)
+
+
+
+
+
+#%%
+
+
+inv_chi0_qe = np.linalg.pinv(chi0_isotropic_qe, rcond=0.01)
+inv_chid_qe = np.linalg.pinv(chid_isotropic_qe - np.sum(chid_isotropic_qe[0])/np.product(qe_supercell), rcond=0.001) # crudely restore charge neutrality somehow
+U_qe = inv_chi0_qe - inv_chid_qe
+
+with np.printoptions(precision=5, suppress=True):
+    print("chi0 isotropic QE R points (first few elements):")
+    print(chi0_isotropic_qe[:6, :6].real)
+    
+    print("chid isotropic QE R points (first few elements):")
+    print(chid_isotropic_qe[:6, :6].real)
+
+    print("U isotropic QE R points (first few elements):")
+    print(U_qe[:6, :6].real)
+
+
+
 
 # %%

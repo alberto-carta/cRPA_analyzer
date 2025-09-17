@@ -63,7 +63,7 @@ print(f"Bare susceptibility trace: {chi00_trace:.6f}")
 from crpa_analyzer.utils import read_WJ, manual_fourier_W
 
 print("\n--- Manual W/J Fourier transform ---")
-W_tensors_manual, r_list, q_list = read_WJ(w_file, j_file, calc.n_orb, kmesh_shape=kgrid)
+W_tensors_manual, r_list, q_list = read_WJ(w_file, j_file, calc.n_orb, kmesh_shape=kgrid, R_cutoff=10)
 print(f"Read {len(r_list)} R-vectors, {len(q_list)} q-vectors")
 W_q_tensors_manual = manual_fourier_W(W_tensors_manual, r_list, q_list)
 
@@ -79,26 +79,6 @@ with np.printoptions(precision=3, suppress=True):
 #%%
 from crpa_analyzer.utils import invert_tensor
 from triqs_tprf.lattice import chi_wr_from_chi_wk
-chi0_inv_wk = chi00_wk.copy() * 0.0
-chid_inv_wk = chi00_wk.copy() * 0.0
-chid_manual_wk = chi00_wk.copy()*0.0
-nk = len(chi00_wk.mesh[1])
-for ik in range(nk):
-    chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-5)
-
-    # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
-    chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
-
-    chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-5)
-
-chid_wr_manual = chi_wr_from_chi_wk(chid_manual_wk)
-
-
-# chid_wr, chid_wk = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-3)
-# print bare and RPA traces
-chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
-print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
-
 # now with the function
 chid_wr_manual, chid_wk_manual = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-5)
 chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
@@ -140,19 +120,22 @@ with np.printoptions(precision=3, suppress=True):
 #%%
 from crpa_analyzer.parse_Wmat_k import forward_transform, backward_transform
 
-chi0q_isotropic = forward_transform(chi0r_isotropic, r_list, q_list)
-chidq_isotropic = forward_transform(chidr_isotropic, r_list, q_list)
+r_list_tprf = [ v.value.value for v in chi00_wr.mesh[1]]
+
+
+chi0q_isotropic = forward_transform(chi0r_isotropic, r_list_tprf, q_list)
+chidq_isotropic = forward_transform(chidr_isotropic, r_list_tprf, q_list)
 
 # invert at every q and backtransform to get U_lrt
 U_lrtq = np.zeros_like(chi0q_isotropic)
 
 for iq in range(len(q_list)):
-    chi0_inv = np.linalg.pinv(chi0q_isotropic[iq], rcond=1e-5)
-    chid_inv = np.linalg.pinv(chidq_isotropic[iq], rcond=1e-5)
+    chi0_inv = np.linalg.pinv(chi0q_isotropic[iq], rcond=1e-4)
+    chid_inv = np.linalg.pinv(chidq_isotropic[iq], rcond=1e-4)
     U_lrtq[iq] = chi0_inv - chid_inv
 
-U_lrtr = backward_transform(U_lrtq, q_list, r_list)
-#%% print U_lrt
+U_lrtr = backward_transform(U_lrtq, q_list, r_list_tprf)
+
 with np.printoptions(precision=3, suppress=True):
     print("\nU_lrt at R=0,0,0")
     print(U_lrtr[0, :, :])
@@ -162,10 +145,48 @@ with np.printoptions(precision=3, suppress=True):
 import pandas as pd
 # save to csv the isotropic components at R = 0 for chis and U,
 #  use the atoms as rows, chi and U as columns
-# for now save only diagonal components
+# for now save only diagonal componen:ts
 
 df = pd.DataFrame(columns = ['chi0_diag', 'chid_diag', 'U_diag'])
 for i in range(n_atoms):
     df.loc[atom_types[i]] = [chi0r_isotropic[0, i, i].real, chidr_isotropic[0, i, i].real, U_lrtr[0, i, i].real]
 df.to_csv(f"{material}_{basis}_isotropic_chis_R0.csv")
 
+#%%
+r_list_tprf = [ v.value.value for v in chi00_wr.mesh[1]]
+# --- QE comparison using library function only ---
+from crpa_analyzer.qe_compare import get_chis_qe_convention
+
+max_qe = [3, 3, 3]
+max_crpa = [7, 7, 7]
+
+chi0_isotropic_qe, chid_isotropic_qe, rr_indices = get_chis_qe_convention(
+    chi0r_isotropic, chidr_isotropic, n_atoms,
+    qe_supercell=max_qe, crpa_supercell=max_crpa, r_list_tprf=r_list_tprf
+)
+
+
+
+
+#%%
+
+
+inv_chi0_qe = np.linalg.pinv(chi0_isotropic_qe, rcond=0.0001)
+inv_chid_qe = np.linalg.pinv(chid_isotropic_qe - np.sum(chid_isotropic_qe[0])/np.product(max_qe), rcond=0.0001) # crudely restore charge neutrality somehow
+U_qe = inv_chi0_qe - inv_chid_qe
+
+with np.printoptions(precision=5, suppress=True):
+    print("chi0 isotropic QE R points (first few elements):")
+    print(chi0_isotropic_qe[:5, :5])
+    
+    print("chid isotropic QE R points (first few elements):")
+    print(chid_isotropic_qe[:5, :5])
+
+    print("U isotropic QE R points (first few elements):")
+    print(U_qe[:5, :5])
+    
+
+
+
+
+# %%

@@ -78,28 +78,28 @@ with np.printoptions(precision=3, suppress=True):
 #%%
 from crpa_analyzer.utils import invert_tensor
 from triqs_tprf.lattice import chi_wr_from_chi_wk
-chi0_inv_wk = chi00_wk.copy() * 0.0
-chid_inv_wk = chi00_wk.copy() * 0.0
-chid_manual_wk = chi00_wk.copy()*0.0
-nk = len(chi00_wk.mesh[1])
-for ik in range(nk):
-    chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-5)
+# chi0_inv_wk = chi00_wk.copy() * 0.0
+# chid_inv_wk = chi00_wk.copy() * 0.0
+# chid_manual_wk = chi00_wk.copy()*0.0
+# nk = len(chi00_wk.mesh[1])
+# for ik in range(nk):
+#     chi0_inv_wk.data[0, ik] = invert_tensor(-chi00_wk.data[0, ik]*2, threshold=1e-5)
 
-    # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
-    chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
+#     # chid_inv_wk.data[0, ik] = -chi0_inv_wk.data[0, ik] - WcRPA_wk.data[0, ik]
+#     chid_inv_wk.data[0, ik] = chi0_inv_wk.data[0, ik] - W_q_tensors_manual[ik]
 
-    chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-5)
+#     chid_manual_wk.data[0, ik] = invert_tensor(chid_inv_wk.data[0, ik], threshold=1e-5)
 
-chid_wr_manual = chi_wr_from_chi_wk(chid_manual_wk)
+# chid_wr_manual = chi_wr_from_chi_wk(chid_manual_wk)
 
 
-# chid_wr, chid_wk = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-3)
-# print bare and RPA traces
-chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
-print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
+# # chid_wr, chid_wk = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-3)
+# # print bare and RPA traces
+# chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
+# print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
 
 # now with the function
-chid_wr_manual, chid_wk_manual = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-5)
+chid_wr_manual, chid_wk_manual = calc.compute_rpa_manually(W_q_tensors_manual, threshold=1e-9)
 chid_trace = np.einsum('aabb', chid_wr_manual.data[0, 0, 0:5, 0:5, 0:5, 0:5])
 print(f"Manual RPA susceptibility trace: {chid_trace:.6f}")
 #%% print ligand and TM
@@ -116,7 +116,7 @@ print(f"Bare susceptibility trace (F): {chi0_p_trace:.6f}")
 print(f"Manual RPA susceptibility trace (F): {chid_p_trace:.6f}")
 
 #%%
-atom_types = ['Cu', 'F1', 'F1', 'F2']
+atom_types = ['Cu', 'F', 'F', 'F']
 n_orb_per_atom = [5, 3, 3, 3, 3]
 atom_indices = [ list(range(sum(n_orb_per_atom[:i]), sum(n_orb_per_atom[:i+1]))) for i in range(len(n_orb_per_atom))]
 
@@ -175,3 +175,66 @@ for i in range(n_atoms):
 df.to_csv(f"{material}_{basis}_isotropic_chis_R0.csv")
 
 # %%
+
+
+
+r_list_tprf = [ v.value.value for v in chi00_wr.mesh[1]]
+# --- QE comparison using library function only ---
+from crpa_analyzer.qe_compare import get_chis_qe_convention
+
+qe_supercell = [4, 4, 4]
+crpa_supercell = [11, 11, 11]
+
+chi0_isotropic_qe, chid_isotropic_qe, rr_indices = get_chis_qe_convention(
+    chi0r_isotropic, chidr_isotropic, n_atoms,
+    qe_supercell=qe_supercell, crpa_supercell=crpa_supercell, r_list_tprf=r_list_tprf
+)
+
+
+#%%
+inv_chi0_qe = np.linalg.pinv(chi0_isotropic_qe, rcond=0.0001)
+inv_chid_qe = np.linalg.pinv(chid_isotropic_qe - np.sum(chid_isotropic_qe[0])/np.product(qe_supercell), rcond=0.0000001) # crudely restore charge neutrality somehow
+U_qe = inv_chi0_qe - inv_chid_qe
+
+with np.printoptions(precision=5, suppress=True):
+    print("chi0 isotropic QE R points (first few elements):")
+    print(chi0_isotropic_qe[:5, :5].real)
+    
+    print("chid isotropic QE R points (first few elements):")
+    print(chid_isotropic_qe[:5, :5].real)
+
+    print("U isotropic QE R points (first few elements):")
+    print(U_qe[:5, :5].real)
+
+# %%
+# Save the three matrices' real parts to JSON
+import json
+
+# Extract real parts and convert to Python lists (keeping matrix form)
+matrices_data = {
+    "chi0_isotropic_qe_real": chi0_isotropic_qe.real.tolist(),
+    "chid_isotropic_qe_real": chid_isotropic_qe.real.tolist(), 
+    "U_qe_real": U_qe.real.tolist(),
+    "metadata": {
+        "material": material,
+        "basis": basis,
+        "qe_supercell": qe_supercell,
+        "crpa_supercell": crpa_supercell,
+        "matrix_shapes": {
+            "chi0_isotropic_qe": list(chi0_isotropic_qe.shape),
+            "chid_isotropic_qe": list(chid_isotropic_qe.shape),
+            "U_qe": list(U_qe.shape)
+        }
+    }
+}
+
+# Save to JSON file
+json_filename = f"{material}_{basis}_crpa_matrices.json"
+with open(json_filename, 'w') as f:
+    json.dump(matrices_data, f, indent=2)
+
+print(f"Saved matrices real parts to {json_filename}")
+print(f"Matrix shapes saved: {matrices_data['metadata']['matrix_shapes']}")
+
+# %%
+
